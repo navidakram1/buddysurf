@@ -11,15 +11,17 @@
   "dependencies": {
     "@emotion/react": "^11.11.0",
     "@emotion/styled": "^11.11.0",
+    "@googlemaps/js-api-loader": "^1.16.2",
     "@mui/material": "^5.13.0",
     "@mui/icons-material": "^5.13.0",
+    "@react-google-maps/api": "^2.19.2",
     "firebase": "^10.1.0",
     "next": "14.0.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-map-gl": "^7.1.0",
-    "twilio": "^4.19.0",
-    "swr": "^2.2.0"
+    "swr": "^2.2.0",
+    "twilio": "^4.19.0"
   },
   "devDependencies": {
     "@types/node": "^20.1.0",

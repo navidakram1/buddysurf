@@ -1,11 +1,11 @@
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/buddysurf', '.']
+    args: ['build', '-t', '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}', '.']
 
-  # Push the container image to Container Registry
+  # Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/buddysurf']
+    args: ['push', '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}']
 
   # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -13,13 +13,13 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'buddysurf'
+      - '${_SERVICE_NAME}'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/buddysurf'
+      - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}'
       - '--region'
-      - 'europe-north1'
+      - '${_DEPLOY_REGION}'
       - '--platform'
-      - 'managed'
+      - '${_PLATFORM}'
       - '--allow-unauthenticated'
       - '--port'
       - '8080'
@@ -33,4 +33,4 @@ steps:
       - '10'
 
 images:
-  - 'gcr.io/$PROJECT_ID/buddysurf'
+  - '${_AR_HOSTNAME}/${_AR_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}'
