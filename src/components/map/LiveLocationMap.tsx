@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Paper, Typography, IconButton, Tooltip } from '@mui/material';
+import { Box, Paper, Typography, IconButton, Tooltip, CircularProgress } from '@mui/material';
 import { GoogleMap, useLoadScript, Marker, Circle } from '@react-google-maps/api';
 import { MyLocation, NearMe, People } from '@mui/icons-material';
 import PlacesAutocomplete from './PlacesAutocomplete';
@@ -9,17 +9,94 @@ interface Location {
   lng: number;
 }
 
+// Initial world view coordinates and zoom level
+const INITIAL_CENTER = { lat: 20, lng: 0 };
+const INITIAL_ZOOM = 2;
+const LOCATION_ZOOM = 15;
+
 const LiveLocationMap = () => {
   const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<Location | null>(null);
   const [nearbyUsers, setNearbyUsers] = useState<Location[]>([]);
   const [searchRadius, setSearchRadius] = useState(1000); // 1km radius
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
     libraries: ['places'],
   });
+
+  const smoothPanTo = useCallback((location: Location, zoom: number) => {
+    if (!map) return;
+
+    // First zoom out slightly for a better animation effect
+    if (!initialLoad) {
+      map.setZoom(map.getZoom()! - 2);
+    }
+
+    // Animate to the new location
+    map.panTo(location);
+
+    // After panning, smoothly zoom in
+    setTimeout(() => {
+      if (map) {
+        map.setZoom(zoom);
+      }
+    }, initialLoad ? 2000 : 300);
+  }, [map, initialLoad]);
+
+  useEffect(() => {
+    if (map && initialLoad) {
+      // Start with world view
+      map.setCenter(INITIAL_CENTER);
+      map.setZoom(INITIAL_ZOOM);
+      setInitialLoad(false);
+
+      // Get user's location after showing world map
+      setIsLocating(true);
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const newLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+            setUserLocation(newLocation);
+            
+            // Smoothly animate to user's location
+            setTimeout(() => {
+              smoothPanTo(newLocation, LOCATION_ZOOM);
+              setIsLocating(false);
+            }, 1500); // Wait 1.5s before starting animation
+
+            // Sample nearby users
+            const sampleNearbyUsers = [
+              {
+                lat: position.coords.latitude + 0.002,
+                lng: position.coords.longitude + 0.002,
+              },
+              {
+                lat: position.coords.latitude - 0.001,
+                lng: position.coords.longitude + 0.001,
+              },
+            ];
+            setNearbyUsers(sampleNearbyUsers);
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            setIsLocating(false);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+          }
+        );
+      }
+    }
+  }, [map, smoothPanTo, initialLoad]);
 
   const handlePlaceSelect = useCallback((place: google.maps.places.PlaceResult) => {
     if (place.geometry?.location && map) {
@@ -28,60 +105,20 @@ const LiveLocationMap = () => {
         lng: place.geometry.location.lng(),
       };
       setSelectedPlace(location);
-      map.panTo(location);
-      map.setZoom(16);
+      smoothPanTo(location, 16);
     }
-  }, [map]);
+  }, [map, smoothPanTo]);
 
   const handleLocationSelect = useCallback((location: Location) => {
     if (map) {
       setSelectedPlace(location);
-      map.panTo(location);
-      map.setZoom(16);
+      smoothPanTo(location, 16);
     }
-  }, [map]);
-
-  useEffect(() => {
-    // Get user's location
-    if (navigator.geolocation) {
-      navigator.geolocation.watchPosition(
-        (position) => {
-          const newLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          setUserLocation(newLocation);
-          
-          // In a real app, we would fetch nearby users from the backend here
-          // For demo, we'll add some sample nearby users
-          const sampleNearbyUsers = [
-            {
-              lat: position.coords.latitude + 0.002,
-              lng: position.coords.longitude + 0.002,
-            },
-            {
-              lat: position.coords.latitude - 0.001,
-              lng: position.coords.longitude + 0.001,
-            },
-          ];
-          setNearbyUsers(sampleNearbyUsers);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0,
-        }
-      );
-    }
-  }, []);
+  }, [map, smoothPanTo]);
 
   const handleCenterMap = () => {
     if (userLocation && map) {
-      map.panTo(userLocation);
-      map.setZoom(15);
+      smoothPanTo(userLocation, LOCATION_ZOOM);
     }
   };
 
@@ -95,14 +132,24 @@ const LiveLocationMap = () => {
       />
       
       <GoogleMap
-        zoom={15}
-        center={userLocation || { lat: 0, lng: 0 }}
+        zoom={INITIAL_ZOOM}
+        center={INITIAL_CENTER}
         mapContainerStyle={{ width: '100%', height: '100%' }}
         options={{
           zoomControl: true,
           streetViewControl: false,
           mapTypeControl: false,
           fullscreenControl: false,
+          minZoom: 2,
+          restriction: {
+            latLngBounds: {
+              north: 85,
+              south: -85,
+              west: -180,
+              east: 180,
+            },
+            strictBounds: true,
+          },
         }}
         onLoad={(map) => setMap(map)}
       >
@@ -176,7 +223,7 @@ const LiveLocationMap = () => {
       >
         <Tooltip title="Center on my location">
           <IconButton onClick={handleCenterMap} color="primary">
-            <MyLocation />
+            {isLocating ? <CircularProgress size={24} /> : <MyLocation />}
           </IconButton>
         </Tooltip>
         <Tooltip title="Nearby users">
